@@ -112,6 +112,19 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
           ...input.messages,
         ]
 
+  if (DaneelCache.isTargetModel(input.model)) {
+    const prefix = DaneelCache.stablePrefix(messages, Object.keys(input.tools))
+    yield* Effect.logInfo("provider cache prefix", {
+      providerID: input.model.providerID,
+      modelID: input.model.id,
+      "session.id": input.sessionID,
+      "cache.policy": prefix.version,
+      "cache.prefix_hash": prefix.hash,
+      "cache.prefix_messages": prefix.messageCount,
+      "cache.prefix_chars": prefix.charCount,
+    })
+  }
+
   const params = yield* input.plugin.trigger(
     "chat.params",
     {
