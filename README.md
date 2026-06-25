@@ -1,129 +1,141 @@
-<p align="center">
-  <a href="https://opencode.ai">
-    <picture>
-      <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
-      <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
-      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="OpenCode logo">
-    </picture>
-  </a>
-</p>
-<p align="center">The open source AI coding agent.</p>
-<p align="center">
-  <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
-  <a href="https://www.npmjs.com/package/opencode-ai"><img alt="npm" src="https://img.shields.io/npm/v/opencode-ai?style=flat-square" /></a>
-  <a href="https://github.com/anomalyco/opencode/actions/workflows/publish.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/anomalyco/opencode/publish.yml?style=flat-square&branch=dev" /></a>
-</p>
+# Daneel
 
-<p align="center">
-  <a href="README.md">English</a> |
-  <a href="README.zh.md">简体中文</a> |
-  <a href="README.zht.md">繁體中文</a> |
-  <a href="README.ko.md">한국어</a> |
-  <a href="README.de.md">Deutsch</a> |
-  <a href="README.es.md">Español</a> |
-  <a href="README.fr.md">Français</a> |
-  <a href="README.it.md">Italiano</a> |
-  <a href="README.da.md">Dansk</a> |
-  <a href="README.ja.md">日本語</a> |
-  <a href="README.pl.md">Polski</a> |
-  <a href="README.ru.md">Русский</a> |
-  <a href="README.bs.md">Bosanski</a> |
-  <a href="README.ar.md">العربية</a> |
-  <a href="README.no.md">Norsk</a> |
-  <a href="README.br.md">Português (Brasil)</a> |
-  <a href="README.th.md">ไทย</a> |
-  <a href="README.tr.md">Türkçe</a> |
-  <a href="README.uk.md">Українська</a> |
-  <a href="README.bn.md">বাংলা</a> |
-  <a href="README.gr.md">Ελληνικά</a> |
-  <a href="README.vi.md">Tiếng Việt</a>
-</p>
+Daneel is an OpenCode fork designed to become a more autonomous, Ubuntu-first, smarter, batteries-included coding harness.
 
-[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
+It keeps the terminal-first coding-agent foundation, but the direction is different: stronger autonomous execution, better default provider behavior, more useful debugging artifacts, and less brittle prompt-only behavior.
 
----
+Daneel is not upstream OpenCode. Some source files, package names, and internals may still carry upstream OpenCode naming while the fork is being cleaned up.
 
-### Installation
+## What Daneel is for
+
+Daneel is for developers who want a coding TUI that can keep working through multi-step software tasks with less micromanagement.
+
+The goal is not to make the model reckless. The goal is to make the harness smarter: safer defaults, clearer state, stronger loops, better provider routing, and useful evidence when something fails.
+
+## Core direction
+
+- Autonomous coding workflows without pointless confirmation spam.
+- Ubuntu-first local development and terminal usage.
+- Batteries-included defaults for agents, providers, debugging, and long sessions.
+- Smarter execution loops that keep state instead of forgetting the goal after one turn.
+- Better support for subscription and alternative coding-model providers.
+- Debuggable session output instead of invisible harness behavior.
+- Cache-aware prompting for providers where stable prefixes matter.
+
+## Native commands
+
+Daneel is being built around three native commands.
+
+### `/goal <description>`
+
+Starts persistent goal mode.
+
+A goal is not a normal one-shot prompt. Once active, Daneel should keep working toward the stated objective across turns until the goal is completed or cancelled. Follow-up user messages become additional context for the active goal unless the user starts a new goal.
+
+Goal mode is intended to activate the autonomous execution stack for the duration of the task.
+
+### `/yolo`
+
+Enables autonomous execution mode.
+
+YOLO means Daneel should avoid wasting the user's time with unnecessary confirmation prompts. It should choose the best reasonable path, run safe commands, continue after recoverable failures, and make progress without asking obvious questions.
+
+YOLO does not mean unsafe. Dangerous operations should still be blocked, redirected, sandboxed, or converted into safer alternatives.
+
+### `/loop`
+
+Enables iterative loop mode.
+
+Loop mode is for repair, test-fix, verification, and repeated improvement cycles. Daneel should keep checking its work, rerunning relevant commands, and tightening the result until the loop reaches a stop condition.
+
+## Provider and model behavior
+
+Daneel is designed to work with already configured providers instead of assuming one model is always enough.
+
+Planned and active provider-focused work includes:
+
+- Out-of-the-box StreamLake KAT Coder Plan integration.
+- Smart fusion routing that rotates requests between configured providers.
+- Provider fallback behavior that avoids killing the task when one provider fails.
+- Better handling for coding models, fast verifier models, and long-context reviewers.
+- Provider-aware prompting instead of pretending every endpoint behaves exactly like OpenAI.
+
+The smart fusion model is intended to choose and rotate between available providers based on task type, provider health, context size, latency, and configured preferences.
+
+## DeepSeek cache-hit optimizations
+
+Daneel includes cache-hit oriented prompt discipline for DeepSeek-style workflows.
+
+The important rule is stable prefix first, volatile task state later. Long-running sessions should avoid destroying cache locality with random timestamps, noisy logs, or constantly reordered context before the stable project and harness instructions.
+
+This matters for repeated review, repair, and verification loops where the same stable context is reused many times.
+
+## JSONL session summaries
+
+Daneel is intended to export JSONL session summaries for debugging and evidence.
+
+These summaries should make it easier to understand what happened during a session: active goal, commands, provider choices, failures, retries, loop state, compacted summaries, and final evidence.
+
+The point is simple: if the harness behaves badly, the session should leave enough structured trace data to debug it.
+
+## Ubuntu-first behavior
+
+Daneel treats Ubuntu as the primary development environment.
+
+That means the default development path should be clean on Ubuntu, local-first, terminal-native, and friendly to normal Linux developer workflows. macOS and other platforms can still matter, but Ubuntu should not feel like an afterthought.
+
+## Development from source
+
+This repository is still close to upstream OpenCode in many places. Expect ongoing rename and cleanup work.
+
+Typical local development commands:
 
 ```bash
-# YOLO
-curl -fsSL https://opencode.ai/install | bash
-
-# Package managers
-npm i -g opencode-ai@latest        # or bun/pnpm/yarn
-scoop install opencode             # Windows
-choco install opencode             # Windows
-brew install anomalyco/tap/opencode # macOS and Linux (recommended, always up to date)
-brew install opencode              # macOS and Linux (official brew formula, updated less)
-sudo pacman -S opencode            # Arch Linux (Stable)
-paru -S opencode-bin               # Arch Linux (Latest from AUR)
-mise use -g opencode               # Any OS
-nix run nixpkgs#opencode           # or github:anomalyco/opencode for latest dev branch
+bun install
+bun run dev
 ```
 
-> [!TIP]
-> Remove versions older than 0.1.x before installing.
-
-### Desktop App (BETA)
-
-OpenCode is also available as a desktop application. Download directly from the [releases page](https://github.com/anomalyco/opencode/releases) or [opencode.ai/download](https://opencode.ai/download).
-
-| Platform              | Download                           |
-| --------------------- | ---------------------------------- |
-| macOS (Apple Silicon) | `opencode-desktop-mac-arm64.dmg`   |
-| macOS (Intel)         | `opencode-desktop-mac-x64.dmg`     |
-| Windows               | `opencode-desktop-windows-x64.exe` |
-| Linux                 | `.deb`, `.rpm`, or `.AppImage`     |
+Useful checks:
 
 ```bash
-# macOS (Homebrew)
-brew install --cask opencode-desktop
-# Windows (Scoop)
-scoop bucket add extras; scoop install extras/opencode-desktop
+bun run typecheck
+bun run lint
 ```
 
-#### Installation Directory
-
-The install script respects the following priority order for the installation path:
-
-1. `$OPENCODE_INSTALL_DIR` - Custom installation directory
-2. `$XDG_BIN_DIR` - XDG Base Directory Specification compliant path
-3. `$HOME/bin` - Standard user binary directory (if it exists or can be created)
-4. `$HOME/.opencode/bin` - Default fallback
+The final user-facing command should be:
 
 ```bash
-# Examples
-OPENCODE_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
-XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
+daneel
 ```
 
-### Agents
+If a development path still exposes `opencode`, treat that as remaining fork migration work.
 
-OpenCode includes two built-in agents you can switch between with the `Tab` key.
+## Roadmap
 
-- **build** - Default, full-access agent for development work
-- **plan** - Read-only agent for analysis and code exploration
-  - Denies file edits by default
-  - Asks permission before running bash commands
-  - Ideal for exploring unfamiliar codebases or planning changes
+Near-term Daneel work includes:
 
-Also included is a **general** subagent for complex searches and multistep tasks.
-This is used internally and can be invoked using `@general` in messages.
+- Finish replacing upstream OpenCode naming with Daneel naming.
+- Harden `/goal`, `/yolo`, and `/loop` as real runtime behavior, not prompt labels.
+- Improve StreamLake KAT Coder Plan support.
+- Improve DeepSeek cache-hit behavior and metrics.
+- Add stronger JSONL session export and debugging reports.
+- Expand smart fusion provider routing.
+- Improve Ubuntu install and launch flow.
+- Add more visible runtime state for goals, loops, providers, and failures.
 
-Learn more about [agents](https://opencode.ai/docs/agents).
+## Upstream relationship
 
-### Documentation
+Daneel is a fork of OpenCode. It benefits from the upstream architecture, but it is moving in a different direction.
 
-For more info on how to configure OpenCode, [**head over to our docs**](https://opencode.ai/docs).
+The focus of Daneel is autonomous, provider-aware, Ubuntu-first coding work with stronger harness behavior and more batteries included by default.
 
-### Contributing
+## Contributing
 
-If you're interested in contributing to OpenCode, please read our [contributing docs](./CONTRIBUTING.md) before submitting a pull request.
+Contributions should preserve the Daneel direction:
 
-### Building on OpenCode
-
-If you are working on a project that's related to OpenCode and is using "opencode" as part of its name, for example "opencode-dashboard" or "opencode-mobile", please add a note to your README to clarify that it is not built by the OpenCode team and is not affiliated with us in any way.
-
----
-
-**Join our community** [Discord](https://discord.gg/opencode) | [X.com](https://x.com/opencode)
+- Prefer real runtime enforcement over prompt-only instructions.
+- Prefer small, testable changes over large vague rewrites.
+- Keep provider behavior explicit.
+- Keep Ubuntu development smooth.
+- Do not add decorative UI or fake status indicators.
+- Do not claim a feature works unless it is wired, visible, and testable.
