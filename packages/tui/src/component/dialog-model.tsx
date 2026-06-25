@@ -8,11 +8,20 @@ import { DialogVariant } from "./dialog-variant"
 import * as fuzzysort from "fuzzysort"
 import { useConnected } from "./use-connected"
 import { useSync } from "../context/sync"
+import { DialogPrompt } from "../ui/dialog-prompt"
+import { useSDK } from "../context/sdk"
+import { useProject } from "../context/project"
+import { useToast } from "../ui/toast"
+
+type ModelChoice = { providerID: string; modelID: string }
 
 export function DialogModel(props: { providerID?: string }) {
   const local = useLocal()
   const sync = useSync()
   const dialog = useDialog()
+  const sdk = useSDK()
+  const project = useProject()
+  const toast = useToast()
   const [query, setQuery] = createSignal("")
 
   const connected = useConnected()
@@ -154,6 +163,58 @@ export function DialogModel(props: { providerID?: string }) {
     dialog.clear()
   }
 
+  function currentEndpoint(choice: ModelChoice) {
+    const config = sync.data.config as any
+    const providerConfig = config.provider?.[choice.providerID]
+    const providerInfo = sync.data.provider.find((provider) => provider.id === choice.providerID)
+    const modelInfo = providerInfo?.models[choice.modelID] as any
+    return providerConfig?.options?.baseURL ?? providerInfo?.options?.baseURL ?? modelInfo?.api?.url ?? ""
+  }
+
+  async function editEndpoint(choice: ModelChoice) {
+    const value = await DialogPrompt.show(dialog, "Edit provider endpoint", {
+      value: currentEndpoint(choice),
+      placeholder: "Provider endpoint URL",
+    })
+    if (value === null) return
+
+    const next = value.trim()
+    if (next.length > 0) {
+      try {
+        new URL(next)
+      } catch {
+        toast.show({ variant: "error", message: "Endpoint must be a URL" })
+        void editEndpoint(choice)
+        return
+      }
+    }
+
+    const config = sync.data.config as any
+    const providerConfig = { ...(config.provider?.[choice.providerID] ?? {}) }
+    const providerOptions = { ...(providerConfig.options ?? {}) }
+    if (next.length === 0) delete providerOptions.baseURL
+    else providerOptions.baseURL = next
+    providerConfig.options = providerOptions
+
+    await sdk.client.config.update(
+      {
+        workspace: project.workspace.current(),
+        config: {
+          ...config,
+          provider: {
+            ...(config.provider ?? {}),
+            [choice.providerID]: providerConfig,
+          },
+        },
+      },
+      { throwOnError: true },
+    )
+    await sdk.client.instance.dispose()
+    await sync.bootstrap()
+    toast.show({ variant: "success", message: `Updated endpoint for ${choice.providerID}` })
+    dialog.replace(() => <DialogModel providerID={choice.providerID} />)
+  }
+
   return (
     <DialogSelect<ReturnType<typeof options>[number]["value"]>
       options={options()}
@@ -163,6 +224,18 @@ export function DialogModel(props: { providerID?: string }) {
           title: connected() ? "Connect provider" : "View all providers",
           onTrigger() {
             dialog.replace(() => <DialogProvider />)
+          },
+        },
+        {
+          command: "model.dialog.endpoint",
+          title: "Endpoint",
+          disabled(option) {
+            const value = option?.value as Partial<ModelChoice> | undefined
+            return !value?.providerID || !value?.modelID
+          },
+          onTrigger: (option) => {
+            const value = option.value as ModelChoice
+            void editEndpoint(value)
           },
         },
         {
