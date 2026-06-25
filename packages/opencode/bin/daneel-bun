@@ -5,8 +5,18 @@ const fs = require("fs")
 const path = require("path")
 
 const args = process.argv.slice(2)
-const source = process.env.DANEEL_SRC_DIR || path.join(process.env.HOME || process.cwd(), ".local", "share", "daneel", "src")
-const binary = process.env.DANEEL_BIN_PATH || path.join(process.env.HOME || process.cwd(), ".local", "share", "daneel", "bin", "daneel")
+const home = process.env.HOME || process.cwd()
+const source = process.env.DANEEL_SRC_DIR || path.join(home, ".local", "share", "daneel", "src")
+const binary = process.env.DANEEL_BIN_PATH || path.join(home, ".local", "share", "daneel", "bin", "daneel")
+const command = path.join(home, ".local", "bin", "daneel")
+
+function restoreWrapper() {
+  const wrapper = path.join(source, "packages", "opencode", "bin", "daneel-bun")
+  if (!fs.existsSync(wrapper)) return
+  fs.mkdirSync(path.dirname(command), { recursive: true })
+  fs.copyFileSync(wrapper, command)
+  fs.chmodSync(command, 0o755)
+}
 
 if (args[0] === "update") {
   const branch = args[1] || process.env.DANEEL_BRANCH || "dev"
@@ -19,7 +29,10 @@ if (args[0] === "update") {
     stdio: "inherit",
     env: { ...process.env, DANEEL_BRANCH: branch, DANEEL_SRC_DIR: source, DANEEL_BIN_PATH: binary },
   })
-  child.on("exit", (code) => process.exit(typeof code === "number" ? code : 1))
+  child.on("exit", (code) => {
+    if (code === 0) restoreWrapper()
+    process.exit(typeof code === "number" ? code : 1)
+  })
   child.on("error", (error) => {
     console.error(error.message)
     process.exit(1)
