@@ -10,7 +10,9 @@ import { Agent } from "../agent/agent"
 import { deriveSubagentSessionPermission } from "../agent/subagent-permissions"
 import type { SessionPrompt } from "../session/prompt"
 import { Config } from "@/config/config"
-import { Effect, Exit, Schema, Scope } from "effect"
+import { Provider } from "@/provider/provider"
+import { DaneelTemporaryAgentPolicy } from "@/daneel/temp-agent-policy"
+import { Effect, Exit, Schema, Scope, Cause } from "effect"
 import { EffectBridge } from "@/effect/bridge"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { Database } from "@opencode-ai/core/database/database"
@@ -30,20 +32,23 @@ const BACKGROUND_DESCRIPTION = [
 ].join(" ")
 const BACKGROUND_STARTED = [
   "The task is working in the background. You will be notified automatically when it finishes.",
-  "DO NOT sleep, poll for progress, ask the task for status, or duplicate this task's work — avoid working with the same files or topics it is using.",
+  "Avoid sleeping, polling, status checks, or duplicate work on the same files/topics.",
   "Work on non-overlapping tasks, or briefly tell the user what you launched and end your response.",
 ].join("\n")
 const BACKGROUND_UPDATED = [
   "Additional context sent to the running background task.",
   "The task is still working in the background. You will be notified automatically when it finishes.",
-  "DO NOT sleep, poll for progress, ask the task for status, or duplicate this task's work — avoid working with the same files or topics it is using.",
+  "Avoid sleeping, polling, status checks, or duplicate work on the same files/topics.",
   "Work on non-overlapping tasks, or briefly tell the user what you sent and end your response.",
 ].join("\n")
 
 const BaseParameterFields = {
   description: Schema.String.annotate({ description: "A short (3-5 words) description of the task" }),
   prompt: Schema.String.annotate({ description: "The task for the agent to perform" }),
-  subagent_type: Schema.String.annotate({ description: "The type of specialized agent to use for this task" }),
+  subagent_type: Schema.String.annotate({
+    description:
+      "The agent type to use. Existing configured agents are preferred; Daneel may also resolve a narrow session-only temporary type when no configured agent matches.",
+  }),
   task_id: Schema.optional(Schema.String).annotate({
     description:
       "This should only be set if you mean to resume a previous task (you can pass a prior task_id and the task will continue the same subagent session as before instead of creating a fresh one)",
@@ -57,7 +62,7 @@ export const Parameters = Schema.Struct({
   ...BaseParameterFields,
   background: Schema.optional(Schema.Boolean).annotate({
     description:
-      "Run the agent in the background. You will be notified when it completes. DO NOT sleep, poll, or proactively check on its progress",
+      "Run the agent in the background. You will be notified when it completes. Do not sleep, poll, or proactively check on its progress",
   }),
 })
 
@@ -85,6 +90,7 @@ export const TaskTool = Tool.define(
     const background = yield* BackgroundJob.Service
     const config = yield* Config.Service
     const sessions = yield* Session.Service
+    const provider = yield* Provider.Service
     const scope = yield* Scope.Scope
     const flags = yield* RuntimeFlags.Service
     const database = yield* Database.Service
@@ -113,15 +119,98 @@ export const TaskTool = Tool.define(
         })
       }
 
-      const next = yield* agent.get(params.subagent_type)
-      if (!next) {
+      const ops = ctx.extra?.promptOps as TaskPromptOps
+      if (!ops) return yield* Effect.fail(new Error("TaskTool requires promptOps in ctx.extra"))
+
+      const parent = yield* sessions.get(ctx.sessionID)
+      const msg = yield* MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID }).pipe(
+        Effect.provideService(Database.Service, database),
+        Effect.orDie,
+      )
+      if (msg.info.role !== "assistant") return yield* Effect.fail(new Error("Not an assistant message"))
+      const variant = msg.info.variant
+      const mainModel = {
+        modelID: msg.info.modelID,
+        providerID: msg.info.providerID,
+      }
+
+      const availableAgents = yield* agent.list()
+      const providers = yield* provider.list()
+      let selection = DaneelTemporaryAgentPolicy.resolveAgent({
+        requestedType: params.subagent_type,
+        agents: availableAgents,
+        providers,
+        mainModel,
+      })
+
+      if (!selection) {
         return yield* Effect.fail(new Error(`Unknown agent type: ${params.subagent_type} is not a valid agent type`))
       }
+
+      let next = selection.agent as Agent.Info
+      if (selection.requiresApproval) {
+        const approverModel = DaneelTemporaryAgentPolicy.selectApprovalModel({
+          providers,
+          mainModel,
+          candidateModel: next.model,
+        })
+        const decision = approverModel
+          ? yield* Effect.gen(function* () {
+              const approvalAgent = DaneelTemporaryAgentPolicy.selectApprovalAgent(availableAgents, ctx.agent)
+              const approvalSession = yield* sessions.create({
+                parentID: ctx.sessionID,
+                title: `Approve ${params.description} (@${next.name})`,
+                agent: approvalAgent,
+                permission: [{ permission: "*", pattern: "*", action: "deny" }],
+              })
+              const result = yield* ops
+                .prompt({
+                  messageID: MessageID.ascending(),
+                  sessionID: approvalSession.id,
+                  model: approverModel,
+                  agent: approvalAgent,
+                  parts: [
+                    {
+                      type: "text",
+                      text: DaneelTemporaryAgentPolicy.buildApprovalPrompt({
+                        selection,
+                        mainModel,
+                        approvalModel: approverModel,
+                      }),
+                    },
+                  ],
+                })
+                .pipe(
+                  Effect.catchCause((cause) =>
+                    Effect.logWarning("Daneel temporary agent approval failed", {
+                      cause: Cause.pretty(cause),
+                      subagent_type: params.subagent_type,
+                    }).pipe(Effect.as(undefined)),
+                  ),
+                )
+              const text = result?.parts.findLast((item) => item.type === "text")?.text ?? ""
+              return DaneelTemporaryAgentPolicy.parseApprovalDecision(text)
+            })
+          : undefined
+
+        selection = DaneelTemporaryAgentPolicy.applyApprovalDecision({
+          selection,
+          decision,
+          providers,
+          mainModel,
+          approverModel,
+        })
+        next = selection.agent as Agent.Info
+      }
+
+      const runtimeAgentName =
+        selection.kind === "temporary" ? DaneelTemporaryAgentPolicy.selectApprovalAgent(availableAgents, ctx.agent) : next.name
+      const runtimeAgent = (availableAgents.find((item) => item.name === runtimeAgentName) ?? next) as Agent.Info
+      const virtualPrompt = selection.kind === "temporary" && next.prompt ? next.prompt : undefined
 
       const session = params.task_id
         ? yield* sessions.get(SessionID.make(params.task_id)).pipe(Effect.catchCause(() => Effect.succeed(undefined)))
         : undefined
-      const parent = yield* sessions.get(ctx.sessionID)
       const childPermission = deriveSubagentSessionPermission({
         parentSessionPermission: parent.permission ?? [],
         subagent: next,
@@ -144,7 +233,7 @@ export const TaskTool = Tool.define(
         (yield* sessions.create({
           parentID: ctx.sessionID,
           title: params.description + ` (@${next.name} subagent)`,
-          agent: next.name,
+          agent: runtimeAgent.name,
           permission: [
             ...childPermission,
             ...childToolDenies.filter(
@@ -157,13 +246,6 @@ export const TaskTool = Tool.define(
           ],
         }))
 
-      const msg = yield* MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID }).pipe(
-        Effect.provideService(Database.Service, database),
-        Effect.orDie,
-      )
-      if (msg.info.role !== "assistant") return yield* Effect.fail(new Error("Not an assistant message"))
-      const variant = msg.info.variant
-
       const model = next.model ?? {
         modelID: msg.info.modelID,
         providerID: msg.info.providerID,
@@ -172,6 +254,14 @@ export const TaskTool = Tool.define(
         parentSessionId: ctx.sessionID,
         sessionId: nextSession.id,
         model,
+        daneelAgentSelection: {
+          kind: selection.kind,
+          requestedType: selection.requestedType,
+          resolvedAgent: next.name,
+          runtimeAgent: runtimeAgent.name,
+          reason: selection.reason,
+          approval: selection.approval,
+        },
         ...(runInBackground ? { background: true } : {}),
       }
 
@@ -180,11 +270,9 @@ export const TaskTool = Tool.define(
         metadata,
       })
 
-      const ops = ctx.extra?.promptOps as TaskPromptOps
-      if (!ops) return yield* Effect.fail(new Error("TaskTool requires promptOps in ctx.extra"))
-
       const runTask = Effect.fn("TaskTool.runTask")(function* () {
-        const parts = yield* ops.resolvePromptParts(params.prompt)
+        const prompt = virtualPrompt ? `${virtualPrompt}\n\nDelegated task:\n${params.prompt}` : params.prompt
+        const parts = yield* ops.resolvePromptParts(prompt)
         const result = yield* ops.prompt({
           messageID: MessageID.ascending(),
           sessionID: nextSession.id,
@@ -193,7 +281,7 @@ export const TaskTool = Tool.define(
             providerID: model.providerID,
           },
           variant: next.model ? undefined : variant,
-          agent: next.name,
+          agent: runtimeAgent.name,
           parts,
         })
         return result.parts.findLast((item) => item.type === "text")?.text ?? ""
@@ -321,8 +409,7 @@ export const TaskTool = Tool.define(
           }),
         (_, exit) =>
           Effect.gen(function* () {
-            if (Exit.hasInterrupts(exit))
-              yield* Effect.all([cancel, background.cancel(nextSession.id)], { discard: true })
+            if (Exit.hasInterrupts(exit)) yield* Effect.all([cancel, background.cancel(nextSession.id)], { discard: true })
           }).pipe(
             Effect.ensuring(
               Effect.sync(() => {
