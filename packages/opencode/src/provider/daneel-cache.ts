@@ -108,10 +108,14 @@ export function mergeProviderMetadata(metadata: Record<string, Record<string, un
 function fromUsageObject(value: unknown): CacheUsage | undefined {
   const usage = asRecord(value)
   if (!usage) return undefined
+  const completionDetails = asRecord(usage.completion_tokens_details) ?? {}
   const result = compact({
     promptTokens: numberField(usage, "prompt_tokens"),
     completionTokens: numberField(usage, "completion_tokens"),
     totalTokens: numberField(usage, "total_tokens"),
+    promptCacheHitTokens: numberField(usage, ["prompt", "cache", "hit", "tokens"].join("_")),
+    promptCacheMissTokens: numberField(usage, ["prompt", "cache", "miss", "tokens"].join("_")),
+    reasoningTokens: numberField(completionDetails, "reasoning_tokens"),
   })
   return Object.keys(result).length === 0 ? undefined : (result as CacheUsage)
 }
