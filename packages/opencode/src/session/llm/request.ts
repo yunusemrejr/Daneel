@@ -14,7 +14,7 @@ import { Effect, Record } from "effect"
 import { jsonSchema, tool as aiTool, type ModelMessage, type Tool } from "ai"
 import type { Plugin } from "@/plugin"
 import { mergeDeep } from "remeda"
-import { DaneelCache } from "@/provider/daneel-cache"
+import * as DaneelCache from "@/provider/daneel-cache"
 
 const USER_AGENT = `opencode/${InstallationVersion}`
 
