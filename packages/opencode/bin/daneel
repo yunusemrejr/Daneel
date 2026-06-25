@@ -1,0 +1,34 @@
+#!/usr/bin/env node
+
+const childProcess = require("child_process")
+const fs = require("fs")
+const path = require("path")
+
+const args = process.argv.slice(2)
+const source = process.env.DANEEL_SRC_DIR || path.join(process.env.HOME || process.cwd(), ".local", "share", "daneel", "src")
+const binary = process.env.DANEEL_BIN_PATH || path.join(process.env.HOME || process.cwd(), ".local", "share", "daneel", "bin", "daneel")
+
+if (args[0] === "update") {
+  const branch = args[1] || process.env.DANEEL_BRANCH || "dev"
+  const script = path.join(source, "script", "install-ubuntu.sh")
+  if (!fs.existsSync(script)) {
+    console.error(`Daneel installer not found at ${script}`)
+    process.exit(1)
+  }
+  const child = childProcess.spawn(script, [], {
+    stdio: "inherit",
+    env: { ...process.env, DANEEL_BRANCH: branch, DANEEL_SRC_DIR: source, DANEEL_BIN_PATH: binary },
+  })
+  child.on("exit", (code) => process.exit(typeof code === "number" ? code : 1))
+  child.on("error", (error) => {
+    console.error(error.message)
+    process.exit(1)
+  })
+} else {
+  const child = childProcess.spawn(binary, args, { stdio: "inherit" })
+  child.on("exit", (code) => process.exit(typeof code === "number" ? code : 0))
+  child.on("error", (error) => {
+    console.error(error.message)
+    process.exit(1)
+  })
+}
