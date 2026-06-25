@@ -4,6 +4,7 @@ import type { ModelsDev } from "@opencode-ai/schema/models-dev"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const fusionProviderModule = pathToFileURL(path.join(here, "../../../opencode/src/daneel/fusion-provider.ts")).href
+const endpointProviderModule = pathToFileURL(path.join(here, "../../../opencode/src/daneel/endpoint-fallback-provider.ts")).href
 
 function textModel(input: {
   id: string
@@ -39,7 +40,7 @@ export const DaneelProviderCatalog = {
     id: "streamlake-kat-coding-plan",
     name: "StreamLake KAT Coding Plan International",
     env: ["STREAMLAKE_API_KEY"],
-    npm: "@ai-sdk/openai-compatible",
+    npm: endpointProviderModule,
     api: "https://wanqing.streamlakeapi.com/api/gateway/coding/v1",
     models: {
       "kat-coder-pro-v2": textModel({
@@ -55,7 +56,7 @@ export const DaneelProviderCatalog = {
     id: "stepfun-step-plan",
     name: "StepFun Step Plan",
     env: ["STEPFUN_API_KEY"],
-    npm: "@ai-sdk/openai-compatible",
+    npm: endpointProviderModule,
     api: "https://api.stepfun.ai/step_plan/v1",
     models: {
       "step-3.7-flash": textModel({
@@ -71,7 +72,7 @@ export const DaneelProviderCatalog = {
     id: "kimi-code-subscription",
     name: "Kimi Code Subscription",
     env: ["KIMI_CODE_API_KEY"],
-    npm: "@ai-sdk/openai-compatible",
+    npm: endpointProviderModule,
     api: "https://api.kimi.com/coding/v1",
     models: {
       "kimi-for-coding": textModel({
@@ -87,7 +88,7 @@ export const DaneelProviderCatalog = {
     id: "minimax-token-plan",
     name: "MiniMax M3 Token Plan",
     env: ["MINIMAX_API_KEY"],
-    npm: "@ai-sdk/openai-compatible",
+    npm: endpointProviderModule,
     api: "https://api.minimax.io/v1",
     models: {
       "MiniMax-M3": textModel({
@@ -103,7 +104,7 @@ export const DaneelProviderCatalog = {
     id: "nvidia-build-nim",
     name: "NVIDIA Build NIM",
     env: ["NVIDIA_API_KEY"],
-    npm: "@ai-sdk/openai-compatible",
+    npm: endpointProviderModule,
     api: "https://integrate.api.nvidia.com/v1",
     models: {
       "nvidia/nemotron-3-ultra-550b-a55b": textModel({
@@ -119,7 +120,7 @@ export const DaneelProviderCatalog = {
     id: "xiaomi-mimo-token-plan",
     name: "Xiaomi MiMo Token Plan",
     env: ["MIMO_API_KEY"],
-    npm: "@ai-sdk/openai-compatible",
+    npm: endpointProviderModule,
     api: "https://api.xiaomimimo.com/v1",
     models: {
       "mimo-v2.5-pro": textModel({
@@ -135,7 +136,7 @@ export const DaneelProviderCatalog = {
     id: "deepseek-direct",
     name: "DeepSeek Direct API",
     env: ["DEEPSEEK_API_KEY"],
-    npm: "@ai-sdk/openai-compatible",
+    npm: endpointProviderModule,
     api: "https://api.deepseek.com",
     models: {
       "deepseek-v4-flash": textModel({
