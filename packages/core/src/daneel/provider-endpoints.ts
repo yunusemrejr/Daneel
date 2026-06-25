@@ -20,10 +20,35 @@ export const DaneelProviderEndpointProfiles: Record<string, DaneelProviderEndpoi
     knownBaseURLs: ["https://api.stepfun.ai/step_plan/v1", "https://api.stepfun.ai/step_plan", "https://api.stepfun.ai/v1"],
     fallbackBaseURLs: [],
   },
+  "kimi-code-subscription": {
+    primaryBaseURL: "https://api.kimi.com/coding/v1",
+    knownBaseURLs: ["https://api.kimi.com/coding/v1", "https://api.kimi.com/coding/", "https://api.moonshot.ai/v1"],
+    fallbackBaseURLs: [],
+  },
+  "minimax-token-plan": {
+    primaryBaseURL: "https://api.minimax.io/v1",
+    knownBaseURLs: ["https://api.minimax.io/v1", "https://api.minimax.io/anthropic", "https://api.minimaxi.com/v1"],
+    fallbackBaseURLs: [],
+  },
+  "nvidia-build-nim": {
+    primaryBaseURL: "https://integrate.api.nvidia.com/v1",
+    knownBaseURLs: ["https://integrate.api.nvidia.com/v1", "http://localhost:8000/v1"],
+    fallbackBaseURLs: [],
+  },
+  "xiaomi-mimo-token-plan": {
+    primaryBaseURL: "https://api.xiaomimimo.com/v1",
+    knownBaseURLs: ["https://api.xiaomimimo.com/v1"],
+    fallbackBaseURLs: [],
+  },
   "deepseek-direct": {
     primaryBaseURL: "https://api.deepseek.com",
     knownBaseURLs: ["https://api.deepseek.com", "https://api.deepseek.com/v1"],
     fallbackBaseURLs: ["https://api.deepseek.com/v1"],
+  },
+  "ollama-cloud-direct-openai": {
+    primaryBaseURL: "https://ollama.com/v1",
+    knownBaseURLs: ["https://ollama.com/v1", "https://ollama.com/api", "http://localhost:11434/v1"],
+    fallbackBaseURLs: [],
   },
 }
 
