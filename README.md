@@ -84,6 +84,14 @@ A goal is not a normal one-shot prompt. Once active, Daneel should keep working 
 
 Goal mode is intended to activate the autonomous execution stack for the duration of the task.
 
+Goal mode also owns internal swarm and council behavior. These are not separate slash commands and are not exposed as user-configurable abilities.
+
+During a running goal, Daneel can launch small deterministic internal swarms when the session shows it needs help, such as first goal work, long-running work, provider/model errors, blocked or stuck language, or repeated turns without enough evidence.
+
+The active main model is preferred for these swarms. Configured cheap/coding providers may also be used, especially StepFun Step Plan, StreamLake KAT Coding Plan, and DeepSeek V4 Flash.
+
+The council is different only in timing: it runs after the main goal criteria check passes, and it is the final judge before Daneel may claim the goal is met.
+
 ### `/yolo`
 
 Enables autonomous execution mode.
@@ -178,14 +186,3 @@ Near-term Daneel work includes:
 Daneel is a fork of OpenCode. It benefits from the upstream architecture, but it is moving in a different direction.
 
 The focus of Daneel is autonomous, provider-aware, Ubuntu-first coding work with stronger harness behavior and more batteries included by default.
-
-## Contributing
-
-Contributions should preserve the Daneel direction:
-
-- Prefer real runtime enforcement over prompt-only instructions.
-- Prefer small, testable changes over large vague rewrites.
-- Keep provider behavior explicit.
-- Keep Ubuntu development smooth.
-- Do not add decorative UI or fake status indicators.
-- Do not claim a feature works unless it is wired, visible, and testable.
