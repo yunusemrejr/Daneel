@@ -23,6 +23,13 @@ import { Reference } from "@opencode-ai/core/reference"
 import { MCP } from "@/mcp"
 import { PermissionV1 } from "@opencode-ai/core/v1/permission"
 
+export const DANEEL_HARNESS_DISCIPLINE_PROMPT = [
+  "Exercise caution with every action.",
+  "Respect all file and folder paths. Know the full impact of any change before executing it.",
+  "Prioritize modularity and separation of concerns. Keep files focused and small. Avoid large monolithic files. Prevent, detect, and remove redundant or dead code at all times.",
+  "The skills provided by your harness contain critical guidance. Consult them actively for coding, architecture, debugging, refactoring, file organization, and reporting tasks. Always prevent AI-slop in your work. AI slop examples are purple gradient backgrounds in UI designs, pill shaped labels with blinking dot animations, tons of emojis, hallucinated facts and thought-leaks in UIs (for example for web dev tasks).",
+].join("\n")
+
 export function provider(model: Provider.Model) {
   if (model.api.id.includes("gpt-4") || model.api.id.includes("o1") || model.api.id.includes("o3"))
     return [PROMPT_BEAST]
@@ -61,6 +68,7 @@ export const layer = Layer.effect(
           return (yield* (yield* Reference.Service).list()).filter((reference) => reference.description !== undefined)
         }).pipe(Effect.provide(locations.get(Location.Ref.make({ directory: AbsolutePath.make(ctx.directory) }))))
         return [
+          DANEEL_HARNESS_DISCIPLINE_PROMPT,
           [
             `You are powered by the model named ${model.api.id}. The exact model ID is ${model.providerID}/${model.api.id}`,
             `Here is some useful information about the environment you are running in:`,
