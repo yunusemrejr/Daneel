@@ -32,13 +32,13 @@ const BACKGROUND_DESCRIPTION = [
 ].join(" ")
 const BACKGROUND_STARTED = [
   "The task is working in the background. You will be notified automatically when it finishes.",
-  "DO NOT sleep, poll for progress, ask the task for status, or duplicate this task's work — avoid working with the same files or topics it is using.",
+  "Avoid sleeping, polling, status checks, or duplicate work on the same files/topics.",
   "Work on non-overlapping tasks, or briefly tell the user what you launched and end your response.",
 ].join("\n")
 const BACKGROUND_UPDATED = [
   "Additional context sent to the running background task.",
   "The task is still working in the background. You will be notified automatically when it finishes.",
-  "DO NOT sleep, poll for progress, ask the task for status, or duplicate this task's work — avoid working with the same files or topics it is using.",
+  "Avoid sleeping, polling, status checks, or duplicate work on the same files/topics.",
   "Work on non-overlapping tasks, or briefly tell the user what you sent and end your response.",
 ].join("\n")
 
@@ -62,7 +62,7 @@ export const Parameters = Schema.Struct({
   ...BaseParameterFields,
   background: Schema.optional(Schema.Boolean).annotate({
     description:
-      "Run the agent in the background. You will be notified when it completes. DO NOT sleep, poll, or proactively check on its progress",
+      "Run the agent in the background. You will be notified when it completes. Do not sleep, poll, or proactively check on its progress",
   }),
 })
 
@@ -203,6 +203,11 @@ export const TaskTool = Tool.define(
         next = selection.agent as Agent.Info
       }
 
+      const runtimeAgentName =
+        selection.kind === "temporary" ? DaneelTemporaryAgentPolicy.selectApprovalAgent(availableAgents, ctx.agent) : next.name
+      const runtimeAgent = (availableAgents.find((item) => item.name === runtimeAgentName) ?? next) as Agent.Info
+      const virtualPrompt = selection.kind === "temporary" && next.prompt ? next.prompt : undefined
+
       const session = params.task_id
         ? yield* sessions.get(SessionID.make(params.task_id)).pipe(Effect.catchCause(() => Effect.succeed(undefined)))
         : undefined
@@ -228,7 +233,7 @@ export const TaskTool = Tool.define(
         (yield* sessions.create({
           parentID: ctx.sessionID,
           title: params.description + ` (@${next.name} subagent)`,
-          agent: next.name,
+          agent: runtimeAgent.name,
           permission: [
             ...childPermission,
             ...childToolDenies.filter(
@@ -253,6 +258,7 @@ export const TaskTool = Tool.define(
           kind: selection.kind,
           requestedType: selection.requestedType,
           resolvedAgent: next.name,
+          runtimeAgent: runtimeAgent.name,
           reason: selection.reason,
           approval: selection.approval,
         },
@@ -265,7 +271,8 @@ export const TaskTool = Tool.define(
       })
 
       const runTask = Effect.fn("TaskTool.runTask")(function* () {
-        const parts = yield* ops.resolvePromptParts(params.prompt)
+        const prompt = virtualPrompt ? `${virtualPrompt}\n\nDelegated task:\n${params.prompt}` : params.prompt
+        const parts = yield* ops.resolvePromptParts(prompt)
         const result = yield* ops.prompt({
           messageID: MessageID.ascending(),
           sessionID: nextSession.id,
@@ -274,7 +281,7 @@ export const TaskTool = Tool.define(
             providerID: model.providerID,
           },
           variant: next.model ? undefined : variant,
-          agent: next.name,
+          agent: runtimeAgent.name,
           parts,
         })
         return result.parts.findLast((item) => item.type === "text")?.text ?? ""
