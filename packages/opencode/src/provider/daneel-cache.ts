@@ -57,6 +57,12 @@ export function stablePrefixSource(messages: readonly SimpleMessage[], tools: re
   })
 }
 
+export function usageFromEvent(value: unknown): CacheUsage | undefined {
+  const event = asRecord(value)
+  if (!event) return undefined
+  return fromUsageObject(event.usage) ?? fromUsageObject(asRecord(event.response)?.usage)
+}
+
 export function mergeUsage(current: CacheUsage | undefined, next: CacheUsage | undefined): CacheUsage | undefined {
   if (!next) return current
   if (!current) return next
@@ -99,6 +105,17 @@ export function mergeProviderMetadata(metadata: Record<string, Record<string, un
   }
 }
 
+function fromUsageObject(value: unknown): CacheUsage | undefined {
+  const usage = asRecord(value)
+  if (!usage) return undefined
+  const result = compact({
+    promptTokens: numberField(usage, "prompt_tokens"),
+    completionTokens: numberField(usage, "completion_tokens"),
+    totalTokens: numberField(usage, "total_tokens"),
+  })
+  return Object.keys(result).length === 0 ? undefined : (result as CacheUsage)
+}
+
 function providerMetadata(usage: CacheUsage | undefined) {
   if (!usage) return undefined
   const hit = usage.promptCacheHitTokens ?? 0
@@ -127,6 +144,11 @@ function providerMetadata(usage: CacheUsage | undefined) {
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
   return value as Record<string, unknown>
+}
+
+function numberField(record: Record<string, unknown>, key: string) {
+  const value = record[key]
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined
 }
 
 function sum(a: number | undefined, b: number | undefined) {
