@@ -154,11 +154,17 @@ Cost-aware routing prefers configured cheap/fast models for small verification, 
 
 ## DeepSeek cache-hit optimizations
 
-Daneel includes cache-hit oriented prompt discipline for DeepSeek-style workflows.
+Daneel has native cache-hit discipline for DeepSeek-style workflows.
 
-The important rule is stable prefix first, volatile task state later. Long-running sessions should avoid destroying cache locality with random timestamps, noisy logs, or constantly reordered context before the stable project and harness instructions.
+DeepSeek caching is automatic on the provider side, so Daneel does not pretend there is a magic enable flag. Instead, Daneel shapes requests so cacheable content stays stable:
 
-This matters for repeated review, repair, and verification loops where the same stable context is reused many times.
+- stable provider and agent policy is kept in the leading system block;
+- volatile environment state, dates, user overrides, recent logs, and current task state are pushed behind that stable block;
+- tool names are sorted before prefix telemetry is calculated;
+- streaming usage is requested so provider cache counters can be observed when the endpoint returns them;
+- cache hit and miss counters are normalized into Daneel's token usage shape for telemetry and future routing.
+
+The goal is repeated review, repair, and verification loops that reuse the same stable prefix instead of destroying cache locality every turn.
 
 ## JSONL session summaries
 
