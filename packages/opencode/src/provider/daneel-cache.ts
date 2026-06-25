@@ -57,9 +57,28 @@ export function stablePrefixSource(messages: readonly SimpleMessage[], tools: re
   })
 }
 
+export function mergeUsage(current: CacheUsage | undefined, next: CacheUsage | undefined): CacheUsage | undefined {
+  if (!next) return current
+  if (!current) return next
+  return {
+    promptTokens: sum(current.promptTokens, next.promptTokens),
+    completionTokens: sum(current.completionTokens, next.completionTokens),
+    totalTokens: sum(current.totalTokens, next.totalTokens),
+    promptCacheHitTokens: sum(current.promptCacheHitTokens, next.promptCacheHitTokens),
+    promptCacheMissTokens: sum(current.promptCacheMissTokens, next.promptCacheMissTokens),
+    reasoningTokens: sum(current.reasoningTokens, next.reasoningTokens),
+  }
+}
+
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
   return value as Record<string, unknown>
+}
+
+function sum(a: number | undefined, b: number | undefined) {
+  if (a === undefined) return b
+  if (b === undefined) return a
+  return a + b
 }
 
 function stableHash(value: string) {
