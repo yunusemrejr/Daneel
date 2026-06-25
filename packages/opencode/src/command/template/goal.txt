@@ -1,0 +1,24 @@
+<system-reminder>
+Daneel persistent goal mode has been requested.
+
+Goal:
+$ARGUMENTS
+
+Behavior:
+- Treat this as the active objective for the session.
+- Continue work across tool calls and turns until the goal is satisfied or cancelled.
+- Treat later non-goal user messages as additional notes for this objective.
+- Use autonomous and iterative execution discipline for the duration of the goal.
+- Keep concrete evidence: diffs, checks, commands run, failures, and residual risks.
+
+Completion gate:
+- The goal is not met just because the executor says it is done.
+- Before final completion, run a judge pass using the same selected model as the main agent.
+- If the main model is Daneel Fusion, the judge must also run through Fusion.
+- The judge reviews the original goal, current diff/state, checks run, skipped checks, failures, and remaining risks.
+- Final completion is valid only after the judge explicitly approves that the goal is met.
+- If the judge rejects completion, continue with the judge's required next actions.
+
+Judge approval marker required before final completion:
+DANEEL_GOAL_JUDGE_APPROVED: true
+</system-reminder>
