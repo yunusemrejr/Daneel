@@ -114,11 +114,17 @@ The smart fusion model is intended to choose and rotate between available provid
 
 ## DeepSeek cache-hit optimizations
 
-Daneel includes cache-hit oriented prompt discipline for DeepSeek-style workflows.
+Daneel has native cache-hit discipline for DeepSeek-style workflows.
 
-The important rule is stable prefix first, volatile task state later. Long-running sessions should avoid destroying cache locality with random timestamps, noisy logs, or constantly reordered context before the stable project and harness instructions.
+DeepSeek caching is automatic on the provider side, so Daneel does not pretend there is a magic enable flag. Instead, Daneel shapes requests so cacheable content stays stable:
 
-This matters for repeated review, repair, and verification loops where the same stable context is reused many times.
+- stable provider and agent policy is kept in the leading system block;
+- volatile environment state, dates, user overrides, recent logs, and current task state are pushed behind that stable block;
+- tool names are sorted before prefix telemetry is calculated;
+- streaming usage is requested so provider cache counters can be observed when the endpoint returns them;
+- cache hit and miss counters are normalized into Daneel's token usage shape for telemetry and future routing.
+
+The goal is repeated review, repair, and verification loops that reuse the same stable prefix instead of destroying cache locality every turn.
 
 ## JSONL session summaries
 
@@ -178,14 +184,3 @@ Near-term Daneel work includes:
 Daneel is a fork of OpenCode. It benefits from the upstream architecture, but it is moving in a different direction.
 
 The focus of Daneel is autonomous, provider-aware, Ubuntu-first coding work with stronger harness behavior and more batteries included by default.
-
-## Contributing
-
-Contributions should preserve the Daneel direction:
-
-- Prefer real runtime enforcement over prompt-only instructions.
-- Prefer small, testable changes over large vague rewrites.
-- Keep provider behavior explicit.
-- Keep Ubuntu development smooth.
-- Do not add decorative UI or fake status indicators.
-- Do not claim a feature works unless it is wired, visible, and testable.
