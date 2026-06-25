@@ -112,6 +112,14 @@ Planned and active provider-focused work includes:
 
 The smart fusion model is intended to choose and rotate between available providers based on task type, provider health, context size, latency, and configured preferences.
 
+## Autonomous temporary agents
+
+Daneel can resolve unknown `subagent_type` values from the task tool as session-only temporary agent candidates. The runtime still uses a registered agent as the execution shell, but Daneel injects a temporary role prompt, records the virtual and runtime agent names in task metadata, and selects a cost-aware provider/model for the task.
+
+Temporary agent selection is not left only to the main session model. When a different configured model is available, Daneel opens a secondary selector pass that can approve the choice or replace it once. The one-pass replacement budget prevents endless disagreement while still keeping a second model in the decision path.
+
+Cost-aware routing prefers configured cheap/fast models for small verification, summarization, extraction, and boring review work. Current cheap/fast hints include StreamLake KAT Coder plan models, StepFun flash models, and DeepSeek v4 flash. OpenRouter, OpenAI/ChatGPT, Gemini, Claude/Anthropic, and xAI/Grok are treated as last-resort routing classes unless explicitly selected by the user or by a configured agent definition.
+
 ## DeepSeek cache-hit optimizations
 
 Daneel includes cache-hit oriented prompt discipline for DeepSeek-style workflows.
@@ -178,14 +186,3 @@ Near-term Daneel work includes:
 Daneel is a fork of OpenCode. It benefits from the upstream architecture, but it is moving in a different direction.
 
 The focus of Daneel is autonomous, provider-aware, Ubuntu-first coding work with stronger harness behavior and more batteries included by default.
-
-## Contributing
-
-Contributions should preserve the Daneel direction:
-
-- Prefer real runtime enforcement over prompt-only instructions.
-- Prefer small, testable changes over large vague rewrites.
-- Keep provider behavior explicit.
-- Keep Ubuntu development smooth.
-- Do not add decorative UI or fake status indicators.
-- Do not claim a feature works unless it is wired, visible, and testable.
