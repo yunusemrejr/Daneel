@@ -2,6 +2,7 @@ import { FinishReason, LLMEvent, ProviderMetadata, ToolResultValue } from "@open
 import { Effect, Schema } from "effect"
 import { type streamText } from "ai"
 import { errorMessage } from "@/util/error"
+import * as DaneelCache from "@/provider/daneel-cache"
 
 type Result = Awaited<ReturnType<typeof streamText>>
 type AISDKEvent = Result["fullStream"] extends AsyncIterable<infer T> ? T : never
@@ -15,6 +16,8 @@ export function adapterState() {
     currentReasoningID: undefined as string | undefined,
     toolNames: {} as Record<string, string>,
     copilotTotalNanoAiu: undefined as number | undefined,
+    targetStepUsage: undefined as DaneelCache.CacheUsage | undefined,
+    targetTotalUsage: undefined as DaneelCache.CacheUsage | undefined,
   }
 }
 
@@ -41,9 +44,8 @@ function copilotTotalNanoAiu(value: unknown) {
   return total
 }
 
-function usage(value: unknown) {
-  if (!value || typeof value !== "object") return undefined
-  const item = value as {
+function usage(value: unknown, targetUsage?: DaneelCache.CacheUsage) {
+  const item = (value && typeof value === "object" ? value : {}) as {
     inputTokens?: number
     outputTokens?: number
     totalTokens?: number
@@ -52,13 +54,25 @@ function usage(value: unknown) {
     inputTokenDetails?: { cacheReadTokens?: number; cacheWriteTokens?: number }
     outputTokenDetails?: { reasoningTokens?: number }
   }
+  const target = DaneelCache.toLLMUsage(targetUsage) as {
+    inputTokens?: number
+    outputTokens?: number
+    totalTokens?: number
+    nonCachedInputTokens?: number
+    cacheReadInputTokens?: number
+    cacheWriteInputTokens?: number
+    reasoningTokens?: number
+    providerMetadata?: ProviderMetadata
+  }
   const entries = Object.entries({
-    inputTokens: item.inputTokens,
-    outputTokens: item.outputTokens,
-    totalTokens: item.totalTokens,
-    reasoningTokens: item.outputTokenDetails?.reasoningTokens ?? item.reasoningTokens,
-    cacheReadInputTokens: item.inputTokenDetails?.cacheReadTokens ?? item.cachedInputTokens,
-    cacheWriteInputTokens: item.inputTokenDetails?.cacheWriteTokens,
+    inputTokens: target.inputTokens ?? item.inputTokens,
+    outputTokens: target.outputTokens ?? item.outputTokens,
+    totalTokens: target.totalTokens ?? item.totalTokens,
+    nonCachedInputTokens: target.nonCachedInputTokens,
+    reasoningTokens: target.reasoningTokens ?? item.outputTokenDetails?.reasoningTokens ?? item.reasoningTokens,
+    cacheReadInputTokens: target.cacheReadInputTokens ?? item.inputTokenDetails?.cacheReadTokens ?? item.cachedInputTokens,
+    cacheWriteInputTokens: target.cacheWriteInputTokens ?? item.inputTokenDetails?.cacheWriteTokens,
+    providerMetadata: target.providerMetadata,
   }).filter((entry) => entry[1] !== undefined)
   return entries.length === 0 ? undefined : Object.fromEntries(entries)
 }
@@ -87,7 +101,7 @@ export function toLLMEvents(
     case "finish-step":
       return Effect.sync(() => {
         const original = providerMetadata(event.providerMetadata)
-        const metadata =
+        const baseMetadata =
           state.copilotTotalNanoAiu === undefined
             ? original
             : {
@@ -97,12 +111,15 @@ export function toLLMEvents(
                   totalNanoAiu: state.copilotTotalNanoAiu,
                 },
               }
+        const targetUsage = state.targetStepUsage
+        const metadata = DaneelCache.mergeProviderMetadata(baseMetadata, targetUsage) as ProviderMetadata | undefined
         state.copilotTotalNanoAiu = undefined
+        state.targetStepUsage = undefined
         return [
           LLMEvent.stepFinish({
             index: state.step++,
             reason: finishReason(event.finishReason),
-            usage: usage(event.usage),
+            usage: usage(event.usage, targetUsage),
             providerMetadata: metadata,
           }),
         ]
@@ -110,11 +127,16 @@ export function toLLMEvents(
 
     case "finish":
       return Effect.sync(() => {
+        const targetUsage = state.targetTotalUsage
+        const metadata = DaneelCache.mergeProviderMetadata(
+          "providerMetadata" in event ? providerMetadata(event.providerMetadata) : undefined,
+          targetUsage,
+        ) as ProviderMetadata | undefined
         const events = [
           LLMEvent.finish({
             reason: finishReason(event.finishReason),
-            usage: usage(event.totalUsage),
-            providerMetadata: "providerMetadata" in event ? providerMetadata(event.providerMetadata) : undefined,
+            usage: usage(event.totalUsage, targetUsage),
+            providerMetadata: metadata,
           }),
         ]
         // Reset so the adapter can be reused for a follow-up stream without leaking
@@ -273,6 +295,11 @@ export function toLLMEvents(
 
     case "raw":
       return Effect.sync(() => {
+        const targetUsage = DaneelCache.usageFromEvent(event.rawValue)
+        if (targetUsage) {
+          state.targetStepUsage = DaneelCache.mergeUsage(state.targetStepUsage, targetUsage)
+          state.targetTotalUsage = DaneelCache.mergeUsage(state.targetTotalUsage, targetUsage)
+        }
         state.copilotTotalNanoAiu = copilotTotalNanoAiu(event.rawValue) ?? state.copilotTotalNanoAiu
         return []
       })
