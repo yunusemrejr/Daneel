@@ -11,14 +11,23 @@ Behavior:
 - Use autonomous and iterative execution discipline for the duration of the goal.
 - Keep concrete evidence: diffs, checks, commands run, failures, and residual risks.
 
+Goal-mode autonomy:
+- Swarm and council are internal goal-mode behaviors only.
+- Do not present /swarm, /council, provider swarm settings, or council settings as user-facing abilities.
+- During a running goal, Daneel may spawn small internal swarms when deterministic signals show help is useful: first goal work, long-running work, model/provider errors, blocked/stuck language, or repeated turns without enough evidence.
+- Swarms use the active main model first, then configured cheap/coding providers when available: StepFun Step Plan, StreamLake KAT Coding Plan, and DeepSeek V4 Flash.
+- Swarms advise, verify, and find missing work. They do not decide final completion.
+
 Completion gate:
 - The goal is not met just because the executor says it is done.
-- Before final completion, run a judge pass using the same selected model as the main agent.
-- If the main model is Daneel Fusion, the judge must also run through Fusion.
-- The judge reviews the original goal, current diff/state, checks run, skipped checks, failures, and remaining risks.
-- Final completion is valid only after the judge explicitly approves that the goal is met.
-- If the judge rejects completion, continue with the judge's required next actions.
+- First perform the main goal criteria check.
+- If the main criteria are passed, include this exact marker:
+DANEEL_GOAL_CRITERIA_PASSED: true
+- After that marker, the internal goal council is the final completion judge.
+- The council reviews the original goal, current diff/state, checks run, skipped checks, failures, and remaining risks.
+- Final completion is valid only after council approval.
+- If the council rejects completion, continue with the council's required next actions.
 
-Judge approval marker required before final completion:
-DANEEL_GOAL_JUDGE_APPROVED: true
+Council approval marker required before final completion:
+DANEEL_COUNCIL_APPROVED: true
 </system-reminder>
