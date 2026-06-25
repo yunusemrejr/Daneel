@@ -86,6 +86,13 @@ export const Info = Schema.Struct({
       Schema.Struct({
         apiKey: Schema.optional(Schema.String),
         baseURL: Schema.optional(Schema.String),
+        knownBaseURLs: Schema.optional(Schema.mutable(Schema.Array(Schema.String))).annotate({
+          description: "Known endpoint bases for this provider. These are shown in the TUI for endpoint editing.",
+        }),
+        fallbackBaseURLs: Schema.optional(Schema.mutable(Schema.Array(Schema.String))).annotate({
+          description:
+            "Endpoint bases the runtime may retry when the active provider endpoint is unavailable or clearly wrong.",
+        }),
         enterpriseUrl: Schema.optional(Schema.String).annotate({
           description: "GitHub Enterprise URL for copilot authentication",
         }),
