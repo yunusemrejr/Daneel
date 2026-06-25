@@ -8,6 +8,7 @@ import { RuntimeFlags } from "@/effect/runtime-flags"
 import { PartID } from "./schema"
 import { MessageV2 } from "./message-v2"
 import { Session } from "./session"
+import { DaneelTemporaryAgentPolicy } from "@/daneel/temp-agent-policy"
 import PROMPT_PLAN from "./prompt/plan.txt"
 import BUILD_SWITCH from "./prompt/build-switch.txt"
 import PLAN_MODE from "./prompt/plan-mode.txt"
@@ -23,27 +24,32 @@ export const apply = Effect.fn("SessionReminders.apply")(function* (input: {
   const userMessage = input.messages.findLast((msg) => msg.info.role === "user")
   if (!userMessage) return input.messages
 
+  const pushSynthetic = (text: string) => {
+    userMessage.parts.push({
+      id: PartID.ascending(),
+      messageID: userMessage.info.id,
+      sessionID: userMessage.info.sessionID,
+      type: "text",
+      text,
+      synthetic: true,
+    })
+  }
+
+  const userTurns = input.messages.filter((msg) => msg.info.role === "user").length
+  const daneelReminder = DaneelTemporaryAgentPolicy.sessionReminder({
+    turn: userTurns,
+    agentName: input.agent.name,
+    parentSessionID: input.session.parentID,
+  })
+  if (daneelReminder) pushSynthetic(daneelReminder)
+
   if (!flags.experimentalPlanMode) {
     if (input.agent.name === "plan") {
-      userMessage.parts.push({
-        id: PartID.ascending(),
-        messageID: userMessage.info.id,
-        sessionID: userMessage.info.sessionID,
-        type: "text",
-        text: PROMPT_PLAN,
-        synthetic: true,
-      })
+      pushSynthetic(PROMPT_PLAN)
     }
     const wasPlan = input.messages.some((msg) => msg.info.role === "assistant" && msg.info.agent === "plan")
     if (wasPlan && input.agent.name === "build") {
-      userMessage.parts.push({
-        id: PartID.ascending(),
-        messageID: userMessage.info.id,
-        sessionID: userMessage.info.sessionID,
-        type: "text",
-        text: BUILD_SWITCH,
-        synthetic: true,
-      })
+      pushSynthetic(BUILD_SWITCH)
     }
     return input.messages
   }
