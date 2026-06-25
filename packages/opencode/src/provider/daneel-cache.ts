@@ -70,6 +70,60 @@ export function mergeUsage(current: CacheUsage | undefined, next: CacheUsage | u
   }
 }
 
+export function toLLMUsage(usage: CacheUsage | undefined) {
+  if (!usage) return {}
+  const inputTokens = usage.promptTokens ?? addDefined(usage.promptCacheHitTokens, usage.promptCacheMissTokens)
+  const totalTokens = usage.totalTokens ?? addDefined(inputTokens, usage.completionTokens)
+  return compact({
+    inputTokens,
+    outputTokens: usage.completionTokens,
+    totalTokens,
+    nonCachedInputTokens: usage.promptCacheMissTokens,
+    cacheReadInputTokens: usage.promptCacheHitTokens,
+    cacheWriteInputTokens:
+      usage.promptCacheHitTokens !== undefined || usage.promptCacheMissTokens !== undefined ? 0 : undefined,
+    reasoningTokens: usage.reasoningTokens,
+    providerMetadata: providerMetadata(usage),
+  })
+}
+
+export function mergeProviderMetadata(metadata: Record<string, Record<string, unknown>> | undefined, usage: CacheUsage | undefined) {
+  const extra = providerMetadata(usage)
+  if (!extra) return metadata
+  return {
+    ...metadata,
+    [TARGET_PROVIDER]: {
+      ...metadata?.[TARGET_PROVIDER],
+      ...extra[TARGET_PROVIDER],
+    },
+  }
+}
+
+function providerMetadata(usage: CacheUsage | undefined) {
+  if (!usage) return undefined
+  const hit = usage.promptCacheHitTokens ?? 0
+  const miss = usage.promptCacheMissTokens ?? 0
+  const denominator = hit + miss
+  return {
+    [TARGET_PROVIDER]: compact({
+      cachePolicy: DANEEL_CACHE_POLICY_VERSION,
+      cache: compact({
+        hitTokens: usage.promptCacheHitTokens,
+        missTokens: usage.promptCacheMissTokens,
+        hitRate: denominator > 0 ? hit / denominator : undefined,
+      }),
+      usage: compact({
+        promptTokens: usage.promptTokens,
+        completionTokens: usage.completionTokens,
+        totalTokens: usage.totalTokens,
+        promptCacheHitTokens: usage.promptCacheHitTokens,
+        promptCacheMissTokens: usage.promptCacheMissTokens,
+        reasoningTokens: usage.reasoningTokens,
+      }),
+    }),
+  }
+}
+
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
   return value as Record<string, unknown>
@@ -81,6 +135,11 @@ function sum(a: number | undefined, b: number | undefined) {
   return a + b
 }
 
+function addDefined(a: number | undefined, b: number | undefined) {
+  if (a === undefined && b === undefined) return undefined
+  return (a ?? 0) + (b ?? 0)
+}
+
 function stableHash(value: string) {
   let hash = 2166136261
   for (let i = 0; i < value.length; i++) {
@@ -88,4 +147,8 @@ function stableHash(value: string) {
     hash = Math.imul(hash, 16777619)
   }
   return (hash >>> 0).toString(16).padStart(8, "0")
+}
+
+function compact<T extends Record<string, unknown>>(input: T) {
+  return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined)) as Record<string, unknown>
 }
