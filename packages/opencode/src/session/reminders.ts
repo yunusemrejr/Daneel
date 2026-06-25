@@ -8,7 +8,9 @@ import { RuntimeFlags } from "@/effect/runtime-flags"
 import { PartID } from "./schema"
 import { MessageV2 } from "./message-v2"
 import { Session } from "./session"
+import { Skill } from "@/skill"
 import { DaneelTemporaryAgentPolicy } from "@/daneel/temp-agent-policy"
+import { DaneelSkillPolicy } from "@/daneel/skill-policy"
 import PROMPT_PLAN from "./prompt/plan.txt"
 import BUILD_SWITCH from "./prompt/build-switch.txt"
 import PLAN_MODE from "./prompt/plan-mode.txt"
@@ -21,6 +23,7 @@ export const apply = Effect.fn("SessionReminders.apply")(function* (input: {
   const flags = yield* RuntimeFlags.Service
   const fsys = yield* FSUtil.Service
   const sessions = yield* Session.Service
+  const skill = yield* Skill.Service
   const userMessage = input.messages.findLast((msg) => msg.info.role === "user")
   if (!userMessage) return input.messages
 
@@ -35,7 +38,30 @@ export const apply = Effect.fn("SessionReminders.apply")(function* (input: {
     })
   }
 
+  const hasSynthetic = (needle: string) =>
+    userMessage.parts.some((part) => part.type === "text" && part.synthetic === true && part.text.includes(needle))
+
   const userTurns = input.messages.filter((msg) => msg.info.role === "user").length
+  const assistantTurns = input.messages.filter((msg) => msg.info.role === "assistant").length
+  const skillReminderTag = DaneelSkillPolicy.reminderTag({ userTurns, assistantTurns })
+
+  if (DaneelSkillPolicy.shouldRefresh({ userTurns, assistantTurns, agentName: input.agent.name }) && !hasSynthetic(skillReminderTag)) {
+    yield* skill.refresh()
+    const availableSkills = yield* skill.available(input.agent)
+    const taskText = userMessage.parts
+      .filter((part) => part.type === "text" && part.synthetic !== true)
+      .map((part) => part.text)
+      .join("\n")
+    const skillReminder = DaneelSkillPolicy.sessionReminder({
+      skills: availableSkills,
+      taskText,
+      userTurns,
+      assistantTurns,
+      agentName: input.agent.name,
+    })
+    if (skillReminder) pushSynthetic(skillReminder)
+  }
+
   const daneelReminder = DaneelTemporaryAgentPolicy.sessionReminder({
     turn: userTurns,
     agentName: input.agent.name,
