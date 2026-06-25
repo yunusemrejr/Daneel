@@ -58,80 +58,25 @@ const allTargets: {
   abi?: "musl"
   avx2?: false
 }[] = [
-  {
-    os: "linux",
-    arch: "arm64",
-  },
-  {
-    os: "linux",
-    arch: "x64",
-  },
-  {
-    os: "linux",
-    arch: "x64",
-    avx2: false,
-  },
-  {
-    os: "linux",
-    arch: "arm64",
-    abi: "musl",
-  },
-  {
-    os: "linux",
-    arch: "x64",
-    abi: "musl",
-  },
-  {
-    os: "linux",
-    arch: "x64",
-    abi: "musl",
-    avx2: false,
-  },
-  {
-    os: "darwin",
-    arch: "arm64",
-  },
-  {
-    os: "darwin",
-    arch: "x64",
-  },
-  {
-    os: "darwin",
-    arch: "x64",
-    avx2: false,
-  },
-  {
-    os: "win32",
-    arch: "arm64",
-  },
-  {
-    os: "win32",
-    arch: "x64",
-  },
-  {
-    os: "win32",
-    arch: "x64",
-    avx2: false,
-  },
+  { os: "linux", arch: "arm64" },
+  { os: "linux", arch: "x64" },
+  { os: "linux", arch: "x64", avx2: false },
+  { os: "linux", arch: "arm64", abi: "musl" },
+  { os: "linux", arch: "x64", abi: "musl" },
+  { os: "linux", arch: "x64", abi: "musl", avx2: false },
+  { os: "darwin", arch: "arm64" },
+  { os: "darwin", arch: "x64" },
+  { os: "darwin", arch: "x64", avx2: false },
+  { os: "win32", arch: "arm64" },
+  { os: "win32", arch: "x64" },
+  { os: "win32", arch: "x64", avx2: false },
 ]
 
 const targets = singleFlag
   ? allTargets.filter((item) => {
-      if (item.os !== process.platform || item.arch !== process.arch) {
-        return false
-      }
-
-      // When building for the current platform, prefer a single native binary by default.
-      // Baseline binaries require additional Bun artifacts and can be flaky to download.
-      if (item.avx2 === false) {
-        return baselineFlag
-      }
-
-      // also skip abi-specific builds for the same reason
-      if (item.abi !== undefined) {
-        return false
-      }
-
+      if (item.os !== process.platform || item.arch !== process.arch) return false
+      if (item.avx2 === false) return baselineFlag
+      if (item.abi !== undefined) return false
       return true
     })
   : allTargets
@@ -147,7 +92,6 @@ if (!skipInstall) {
 for (const item of targets) {
   const name = [
     pkg.name,
-    // changing to win32 flags npm for some reason
     item.os === "win32" ? "windows" : item.os,
     item.arch,
     item.avx2 === false ? "baseline" : undefined,
@@ -162,10 +106,9 @@ for (const item of targets) {
   const rootPath = path.resolve(dir, "../../node_modules/@opentui/core/parser.worker.js")
   const parserWorker = fs.realpathSync(fs.existsSync(localPath) ? localPath : rootPath)
   const workerPath = "./src/cli/tui/worker.ts"
-
-  // Use platform-specific bunfs root path based on target OS
   const bunfsRoot = item.os === "win32" ? "B:/~BUN/root/" : "/$bunfs/root/"
   const workerRelativePath = path.relative(dir, parserWorker).replaceAll("\\", "/")
+  const builtBinary = `dist/${name}/bin/${binaryName}`
 
   await Bun.build({
     conditions: ["bun", "node"],
@@ -182,7 +125,7 @@ for (const item of targets) {
       autoloadTsconfig: true,
       autoloadPackageJson: true,
       target: name.replace(pkg.name, "bun") as any,
-      outfile: `dist/${name}/bin/${binaryName}`,
+      outfile: builtBinary,
       execArgv: [`--user-agent=daneel/${Script.version}`, "--use-system-ca", "--"],
       windows: {},
     },
@@ -203,12 +146,12 @@ for (const item of targets) {
     },
   })
 
-  // Smoke test: only run if binary is for current platform
+  fs.copyFileSync(builtBinary, `dist/${name}/bin/opencode`)
+
   if (item.os === process.platform && item.arch === process.arch && !item.abi) {
-    const binaryPath = `dist/${name}/bin/${binaryName}`
-    console.log(`Running smoke test: ${binaryPath} --version`)
+    console.log(`Running smoke test: ${builtBinary} --version`)
     try {
-      const versionOutput = await $`${binaryPath} --version`.text()
+      const versionOutput = await $`${builtBinary} --version`.text()
       console.log(`Smoke test passed: ${versionOutput.trim()}`)
     } catch (e) {
       console.error(`Smoke test failed for ${name}:`, e)
