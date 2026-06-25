@@ -98,12 +98,12 @@ export function sessionReminder(input: {
   assistantTurns: number
   agentName: string
 }) {
-  if (input.skills.length === 0) return undefined
   if (!shouldRefresh(input)) return undefined
 
   const selected = selectRelevant({ skills: input.skills, taskText: input.taskText, limit: 5 })
   const candidates = selected.length > 0 ? selected : input.skills.toSorted((a, b) => a.name.localeCompare(b.name)).slice(0, 5)
   const tag = reminderTag(input)
+  const candidateLines = candidates.map((item) => `- ${item.name}${item.description ? `: ${item.description}` : ""}`).join("\n")
 
   return `${tag}
 Skills are high-priority Daneel abilities, not startup decoration.
@@ -111,7 +111,7 @@ Skills are high-priority Daneel abilities, not startup decoration.
 Before continuing, compare the current task with the available skills. If a listed skill is plausibly relevant, call the skill tool now, read the skill, and apply its workflow or knowledge. If you skip a plausible skill, keep the reason explicit in your working notes or tool-result summary.
 
 Relevant skill candidates for this turn:
-${candidates.map((item) => `- ${item.name}${item.description ? `: ${item.description}` : ""}`).join("\n")}
+${candidateLines || "- Check the available skill list for the current session."}
 
 Use the tool call shape: skill({ "name": "<skill-name>" }).
 </daneel-skill-reminder>`
