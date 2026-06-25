@@ -6,6 +6,56 @@ It keeps the terminal-first coding-agent foundation, but the direction is differ
 
 Daneel is not upstream OpenCode. Some source files, package names, and internals may still carry upstream OpenCode naming while the fork is being cleaned up.
 
+## Install on Ubuntu
+
+Use one command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yunusemrejr/Daneel/dev/script/install-ubuntu.sh | bash && install -m 755 "$HOME/.local/share/daneel/src/packages/opencode/bin/daneel-bun" "$HOME/.local/bin/daneel"
+```
+
+This installs the required Ubuntu packages, installs Bun if missing, clones or updates the official Daneel repository, compiles the current Linux binary, and exposes the command as:
+
+```bash
+daneel
+```
+
+The managed source checkout is stored at:
+
+```text
+~/.local/share/daneel/src
+```
+
+The managed compiled binary is stored at:
+
+```text
+~/.local/share/daneel/bin/daneel
+```
+
+Make sure `~/.local/bin` is in your `PATH`.
+
+## Updating Daneel
+
+After installing with the Ubuntu command above, update Daneel with:
+
+```bash
+daneel update
+```
+
+`daneel update` uses the managed Daneel source checkout, points it at `https://github.com/yunusemrejr/Daneel.git`, fetches the configured branch, rebuilds Daneel, and replaces the managed local binary.
+
+Default branch:
+
+```text
+dev
+```
+
+Update from another branch:
+
+```bash
+daneel update my-branch-name
+```
+
 ## What Daneel is for
 
 Daneel is for developers who want a coding TUI that can keep working through multi-step software tasks with less micromanagement.
