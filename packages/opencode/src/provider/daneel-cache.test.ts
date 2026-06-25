@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { DaneelCache } from "./daneel-cache"
+import * as DaneelCache from "./daneel-cache"
 
 describe("DaneelCache", () => {
   test("detects the target provider without depending on a provider id shape", () => {
