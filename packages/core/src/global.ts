@@ -7,16 +7,21 @@ import { Flock } from "./util/flock"
 import { Flag } from "./flag/flag"
 import { LayerNode } from "./effect/layer-node"
 
-const app = "opencode"
-const data = path.join(xdgData!, app)
-const cache = path.join(xdgCache!, app)
-const config = path.join(xdgConfig!, app)
-const state = path.join(xdgState!, app)
-const tmp = path.join(os.tmpdir(), app)
+const app = "daneel"
+
+function envPath(key: string, fallback: string) {
+  return process.env[key] ?? fallback
+}
+
+const data = envPath("DANEEL_DATA_DIR", path.join(xdgData!, app))
+const cache = envPath("DANEEL_CACHE_DIR", path.join(xdgCache!, app))
+const config = envPath("DANEEL_CONFIG_DIR", path.join(xdgConfig!, app))
+const state = envPath("DANEEL_STATE_DIR", path.join(xdgState!, app))
+const tmp = envPath("DANEEL_TMP_DIR", path.join(os.tmpdir(), app))
 
 const paths = {
   get home() {
-    return process.env.OPENCODE_TEST_HOME ?? os.homedir()
+    return process.env.DANEEL_TEST_HOME ?? os.homedir()
   },
   data,
   bin: path.join(cache, "bin"),

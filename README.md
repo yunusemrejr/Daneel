@@ -4,14 +4,14 @@ Daneel is an OpenCode fork designed to become a more autonomous, Ubuntu-first, s
 
 It keeps the terminal-first coding-agent foundation, but the direction is different: stronger autonomous execution, better default provider behavior, more useful debugging artifacts, and less brittle prompt-only behavior.
 
-Daneel is not upstream OpenCode. Some source files, package names, and internals may still carry upstream OpenCode naming while the fork is being cleaned up.
+Daneel is not upstream OpenCode. Some internal package names may still carry upstream OpenCode naming while the fork is being cleaned up, but the user-facing install, command, config, data, cache, and project config paths must stay separate from OpenCode.
 
 ## Install on Ubuntu
 
 Use one command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yunusemrejr/Daneel/dev/script/install-ubuntu.sh | bash && install -m 755 "$HOME/.local/share/daneel/src/packages/opencode/bin/daneel-bun" "$HOME/.local/bin/daneel"
+installer="$(mktemp)"; curl -fsSL https://raw.githubusercontent.com/yunusemrejr/Daneel/dev/script/install-ubuntu.sh -o "$installer" && bash "$installer"; code=$?; rm -f "$installer"; exit $code
 ```
 
 This installs the required Ubuntu packages, installs Bun if missing, clones or updates the official Daneel repository, compiles the current Linux binary, and exposes the command as:
@@ -34,15 +34,47 @@ The managed compiled binary is stored at:
 
 Make sure `~/.local/bin` is in your `PATH`.
 
-## Updating Daneel
+## Daneel and OpenCode stay separate
 
-After installing with the Ubuntu command above, update Daneel with:
+Daneel must not read, write, overwrite, or depend on a user's existing OpenCode installation.
 
-```bash
-daneel update
+Daneel uses Daneel-owned runtime locations:
+
+```text
+~/.config/daneel
+~/.local/share/daneel
+~/.cache/daneel
+~/.local/state/daneel
 ```
 
-`daneel update` uses the managed Daneel source checkout, points it at `https://github.com/yunusemrejr/Daneel.git`, fetches the configured branch, rebuilds Daneel, and replaces the managed local binary.
+OpenCode uses different locations such as:
+
+```text
+~/.config/opencode
+~/.local/share/opencode
+~/.cache/opencode
+~/.local/state/opencode
+```
+
+Daneel project config files are:
+
+```text
+daneel.json
+.daneel/daneel.json
+```
+
+Daneel should not automatically consume:
+
+```text
+opencode.json
+.opencode/
+```
+
+Environment variables must also be separate. Use `DANEEL_*` variables for Daneel. Existing `OPENCODE_*` variables belong to OpenCode and should not control Daneel runtime behavior.
+
+## Updating Daneel
+
+After installing with the Ubuntu command above, update Daneel by rerunning the same installer command. It uses the managed Daneel source checkout, points it at `https://github.com/yunusemrejr/Daneel.git`, fetches the configured branch, rebuilds Daneel, and replaces the managed local binary.
 
 Default branch:
 
@@ -53,7 +85,7 @@ dev
 Update from another branch:
 
 ```bash
-daneel update my-branch-name
+DANEEL_BRANCH=my-branch-name installer="$(mktemp)"; curl -fsSL https://raw.githubusercontent.com/yunusemrejr/Daneel/dev/script/install-ubuntu.sh -o "$installer" && bash "$installer"; code=$?; rm -f "$installer"; exit $code
 ```
 
 ## What Daneel is for

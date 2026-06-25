@@ -7,14 +7,17 @@ import { unique } from "remeda"
 import * as Effect from "effect/Effect"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 
+const projectConfigFileTargets = ["daneel.jsonc", "daneel.json", path.join(".daneel", "daneel.jsonc"), path.join(".daneel", "daneel.json")]
+const projectConfigDirectoryTarget = ".daneel"
+
 export const files = Effect.fn("ConfigPaths.projectFiles")(function* (
-  name: string,
+  _name: string,
   directory: string,
   worktree?: string,
 ) {
   const afs = yield* FSUtil.Service
   return (yield* afs.up({
-    targets: [`${name}.jsonc`, `${name}.json`],
+    targets: projectConfigFileTargets,
     start: directory,
     stop: worktree,
   })).toReversed()
@@ -26,13 +29,13 @@ export const directories = Effect.fn("ConfigPaths.directories")(function* (direc
     Global.Path.config,
     ...(!Flag.OPENCODE_DISABLE_PROJECT_CONFIG
       ? yield* afs.up({
-          targets: [".opencode"],
+          targets: [projectConfigDirectoryTarget],
           start: directory,
           stop: worktree,
         })
       : []),
     ...(yield* afs.up({
-      targets: [".opencode"],
+      targets: [projectConfigDirectoryTarget],
       start: Global.Path.home,
       stop: Global.Path.home,
     })),
@@ -41,5 +44,6 @@ export const directories = Effect.fn("ConfigPaths.directories")(function* (direc
 })
 
 export function fileInDirectory(dir: string, name: string) {
-  return [path.join(dir, `${name}.json`), path.join(dir, `${name}.jsonc`)]
+  const basename = name === "opencode" ? "daneel" : name
+  return [path.join(dir, `${basename}.json`), path.join(dir, `${basename}.jsonc`)]
 }
