@@ -220,14 +220,14 @@ export function DialogModel(props: { providerID?: string }) {
       options={options()}
       actions={[
         {
-          command: "model.dialog.provider",
+          command: "provider.connect",
           title: connected() ? "Connect provider" : "View all providers",
           onTrigger() {
             dialog.replace(() => <DialogProvider />)
           },
         },
         {
-          command: "model.dialog.endpoint",
+          command: "model.dialog.provider",
           title: "Endpoint",
           disabled(option) {
             const value = option?.value as Partial<ModelChoice> | undefined
