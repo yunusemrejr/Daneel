@@ -6,9 +6,9 @@ import { FSUtil } from "@opencode-ai/core/fs-util"
 import { InstanceState } from "@/effect/instance-state"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { PartID } from "./schema"
-import { MessageV2 } from "./message-v2"
 import { Session } from "./session"
 import { DaneelTemporaryAgentPolicy } from "@/daneel/temp-agent-policy"
+import { DaneelCompletion } from "@/daneel/completion"
 import PROMPT_PLAN from "./prompt/plan.txt"
 import BUILD_SWITCH from "./prompt/build-switch.txt"
 import PLAN_MODE from "./prompt/plan-mode.txt"
@@ -42,6 +42,9 @@ export const apply = Effect.fn("SessionReminders.apply")(function* (input: {
     parentSessionID: input.session.parentID,
   })
   if (daneelReminder) pushSynthetic(daneelReminder)
+
+  const goalReminder = DaneelCompletion.goalModeSessionReminder(input.messages)
+  if (goalReminder) pushSynthetic(goalReminder)
 
   if (!flags.experimentalPlanMode) {
     if (input.agent.name === "plan") {
